@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" fill="none">
+  <!-- Icon Group -->
+  <g transform="translate(320, 10)">
+    <!-- Bubble 1 (Left 'A') -->
+    <path d="M24 16H34C42.837 16 50 23.163 50 32C50 40.837 42.837 48 34 48C32.1 48 30.27 47.65 28.6 47L18.8 53C17.97 53.5 16.96 52.78 17.2 51.85L19.2 43.6C13.43 41.28 9.7 35.65 9.7 32C9.7 23.163 16.863 16 25.7 16H24Z" stroke="#111111" stroke-width="4.5" stroke-linejoin="round" fill="#FFFFFF"/>
+    <text x="30" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="900" text-anchor="middle" fill="#111111">A</text>
+
+    <!-- Bubble 2 (Right 'ع') -->
+    <path d="M58 32H68C76.837 32 84 39.163 84 48C84 56.837 76.837 64 68 64C66.1 64 64.27 63.65 62.6 63L52.8 69C51.97 69.5 50.96 68.78 51.2 67.85L53.2 59.6C47.43 57.28 43.7 51.65 43.7 48C43.7 39.163 50.863 32 59.7 32H58Z" stroke="#111111" stroke-width="4.5" stroke-linejoin="round" fill="#FFFFFF"/>
+    <text x="65" y="55" font-family="'Segoe UI', Tahoma, Arial, sans-serif" font-size="22" font-weight="bold" text-anchor="middle" fill="#111111">ع</text>
+  </g>
+
+  <!-- Typography -->
+  <text x="20" y="115" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="64" font-weight="900" letter-spacing="-0.02em" fill="#111111">DUALSCRIBE</text>
+  
+  <text x="22" y="150" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="24" font-weight="500" letter-spacing="-0.01em" fill="#222222">Instant, accurate bi-lingual notes</text>
+</svg>
