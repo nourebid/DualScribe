@@ -3,15 +3,12 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import path from "path";
-import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import bcrypt from "bcryptjs";
 import { generateSecret, generateURI, verifySync } from "otplib";
 import qrcode from "qrcode";
 import crypto from "crypto";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { groqTranscriptionMiddleware } from "./server/transcriptionRoute";
 
 const db = new Database("sawtify.db");
 
@@ -985,7 +982,7 @@ Please listen carefully to this entire audio recording from the very beginning t
   // ----------------------------------------------------
   // TRANSCRIPTION ROUTE (Using the User's Own API Key)
   // ----------------------------------------------------
-  app.post("/api/transcribe", async (req, res) => {
+  app.post("/api/transcribe", groqTranscriptionMiddleware, async (req, res) => {
     const { userId, base64Audio, mimeType, modelName, directApiKey, filename } = req.body;
 
     if (!base64Audio) {

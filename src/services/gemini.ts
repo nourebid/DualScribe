@@ -1,15 +1,6 @@
-export interface TranscriptionSegment {
-  speaker: string;
-  text: string;
-  timestamp?: string;
-}
-
-export interface TranscriptionResult {
-  language: string;
-  segments: TranscriptionSegment[];
-  fullText: string;
-  modelUsed?: string;
-}
+import type { TranscriptionResult } from '../types';
+import type { TranscriptionProvider } from '../transcriptionConfig';
+export type { TranscriptionResult, TranscriptionSegment } from '../types';
 
 export async function transcribeAudio(
   base64Audio: string,
@@ -17,7 +8,8 @@ export async function transcribeAudio(
   modelName: string = "gemini-3.8-flash",
   userId?: number,
   directApiKey?: string,
-  filename?: string
+  filename?: string,
+  provider: TranscriptionProvider = "gemini"
 ): Promise<TranscriptionResult> {
   const response = await fetch("/api/transcribe", {
     method: "POST",
@@ -31,16 +23,18 @@ export async function transcribeAudio(
       userId,
       directApiKey,
       filename,
+      provider,
     }),
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({ error: `Upload failed (HTTP ${response.status}). Check the file size and connection.` }));
 
   if (!response.ok) {
     const error: any = new Error(data.error || "Failed to transcribe audio. Please try again.");
     if (data.code) {
       error.code = data.code;
     }
+    error.retryAfter = data.retryAfter;
     if (data.isRetryable) {
       error.isRetryable = data.isRetryable;
     }

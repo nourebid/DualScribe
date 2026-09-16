@@ -21,6 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { UserData, TranscriptionResult, TranscriptionSegment } from '../types';
 import { transcribeAudio } from '../services/gemini';
+import { GROQ_MODEL, GROQ_MAX_AUDIO_BYTES, GROQ_EXTENSIONS } from '../transcriptionConfig';
 
 interface TranscriptionViewProps {
   user: UserData;
@@ -42,6 +43,8 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState('gemini-3.8-flash');
+  const [groqApiKey, setGroqApiKey] = useState('');
+  const isGroq = selectedModel === GROQ_MODEL;
   const [isDragging, setIsDragging] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -114,15 +117,22 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   const handleTranscribe = async (overrideModel?: string) => {
     if (!file) return;
 
-    // Check if user has an API key configured
-    if (!user.hasApiKey) {
+    const modelToUse = overrideModel || selectedModel;
+    const useGroq = modelToUse === GROQ_MODEL;
+    if (useGroq && (!groqApiKey.trim() || file.size > GROQ_MAX_AUDIO_BYTES || !GROQ_EXTENSIONS.test(file.name))) {
+      setIsHighDemand(false);
+      setError(!groqApiKey.trim() ? 'Enter your Groq API key below.' : file.size > GROQ_MAX_AUDIO_BYTES ? 'Groq supports files up to 25 MB. Compress or split this recording first.' : 'This format is not supported by Groq. Convert it to WAV, FLAC or MP3 first.');
+      return;
+    }
+
+    // The saved key belongs exclusively to Gemini. Groq uses an in-memory key.
+    if (!useGroq && !user.hasApiKey) {
       setError('Gemini API key required. Each user must connect their personal API key to transcribe audio.');
       setIsHighDemand(false);
       onOpenApiKeyModal();
       return;
     }
 
-    const modelToUse = overrideModel || selectedModel;
     if (overrideModel) {
       setSelectedModel(overrideModel);
     }
@@ -151,8 +161,8 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
         if (simProgress > 98) simProgress = 98;
         setProgress(Math.round(simProgress));
 
-        if (simProgress > 30 && simProgress < 60) setStatus('Detecting distinct speakers & timestamps...');
-        if (simProgress >= 60) setStatus('Synthesizing high-precision bilingual notes...');
+        if (simProgress > 30 && simProgress < 60) setStatus(useGroq ? 'Transcribing audio and timestamps...' : 'Detecting distinct speakers & timestamps...');
+        if (simProgress >= 60) setStatus('Waiting for the completed transcript...');
       }, 700);
 
       // Normalize MIME type from file.type or file extension
@@ -174,8 +184,9 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
         detectedMime,
         modelToUse,
         user.id,
-        undefined,
-        file.name
+        useGroq ? groqApiKey.trim() : undefined,
+        file.name,
+        useGroq ? 'groq' : 'gemini'
       );
 
       if (progressInterval) clearInterval(progressInterval);
@@ -196,7 +207,10 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
         errMsg.toLowerCase().includes('unavailable') ||
         errMsg.toLowerCase().includes('temporarily');
 
-      if (err.code === 'API_KEY_REQUIRED') {
+      if (useGroq) {
+        setIsHighDemand(false);
+        setError((err.message || 'Groq transcription failed.') + (err.retryAfter ? ` Retry after ${err.retryAfter} seconds.` : ''));
+      } else if (err.code === 'API_KEY_REQUIRED') {
         setIsHighDemand(false);
         setError('Your Gemini API key is missing or expired. Please update your API key.');
         onOpenApiKeyModal();
@@ -231,7 +245,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
   return (
     <div className="space-y-8">
       {/* 1. API KEY BANNER IF NOT CONFIGURED */}
-      {!user.hasApiKey && (
+      {!isGroq && !user.hasApiKey && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -330,19 +344,20 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
           )}
         </div>
 
-        {file && !result && !isTranscribing && (
+        {file && (!result || !result.fullText?.trim() || result.fullText.toLowerCase().includes('no speech detected')) && !isTranscribing && (
           <div className="mt-6 space-y-4 pt-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
                   <Sparkles size={14} className="text-neutral-700" />
-                  <span>Gemini Model</span>
+                  <span>Transcription Provider / Model</span>
                 </label>
                 <select
                   value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
+                  onChange={(e) => { setSelectedModel(e.target.value); setError(null); setIsHighDemand(false); }}
                   className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-800 outline-none focus:ring-2 focus:ring-neutral-900 cursor-pointer"
                 >
+                  <option value={GROQ_MODEL}>Groq · Whisper Large V3 Turbo</option>
                   <option value="gemini-3.8-flash">Gemini 3.8 Flash (Fast & Accurate - Recommended)</option>
                   <option value="gemini-3.5-transcribe">Gemini 3.5 Transcribe (Audio Transcription Specialized)</option>
                   <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (High Availability)</option>
@@ -365,6 +380,18 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
               </div>
             </div>
 
+            {isGroq && (
+              <div className="space-y-2">
+                <label htmlFor="groq-api-key" className="block text-xs font-bold text-neutral-700">Groq API key (temporary)</label>
+                <input id="groq-api-key" type="password" autoComplete="off" spellCheck={false}
+                  value={groqApiKey} onChange={(e) => setGroqApiKey(e.target.value)}
+                  placeholder="Enter your Groq API key"
+                  className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs" />
+                <p className="text-xs text-neutral-500">Kept in memory while this view is open; sent through the server to Groq. Up to 25 MB per file. Speaker identification is unavailable.</p>
+                <a className="text-xs underline" href="https://console.groq.com/keys" target="_blank" rel="noreferrer">Get a Groq API key</a>
+              </div>
+            )}
+
             <motion.button
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -372,7 +399,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
               className="w-full bg-neutral-900 text-white py-4 rounded-xl font-bold text-sm hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2 shadow-xs"
             >
               <Sparkles size={18} />
-              <span>Transcribe & Extract Notes</span>
+              <span>Transcribe Audio</span>
             </motion.button>
           </div>
         )}
@@ -476,7 +503,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
             <AlertCircle size={17} className="shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p>{error}</p>
-              {!user.hasApiKey && (
+              {!isGroq && !user.hasApiKey && (
                 <button
                   onClick={onOpenApiKeyModal}
                   className="font-bold underline text-red-800 hover:text-red-900 block pt-0.5"
@@ -518,7 +545,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                       </span>
                     )}
                     <span className="text-xs text-neutral-400 font-medium">
-                      {result.segments?.length || 1} speech turns
+                      {result.segments?.length || 0} {result.speakerDiarization === false ? 'timed segments · speakers not identified' : 'speech turns'}
                     </span>
                   </div>
                 </div>
@@ -532,7 +559,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                       activeTab === 'segments' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
-                    Speaker View
+                    {result.speakerDiarization === false ? 'Segments' : 'Speaker View'}
                   </button>
                   <button
                     onClick={() => setActiveTab('fulltext')}
@@ -618,7 +645,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
 
             {/* Content view */}
             <div className="p-6 sm:p-8 max-h-[600px] overflow-y-auto">
-              {result.fullText?.toLowerCase().includes('no speech detected') ? (
+              {(!result.fullText?.trim() || result.fullText?.toLowerCase().includes('no speech detected')) ? (
                 <div className="p-6 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center shrink-0 mt-0.5">
@@ -632,6 +659,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-amber-200/70">
+                    {result.speakerDiarization === false ? <p>Try another recording or choose a different provider above.</p> : <>
                     <button
                       onClick={() => handleTranscribe('gemini-3.8-flash')}
                       className="px-3.5 py-2 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition-colors flex items-center gap-1.5 shadow-xs"
@@ -657,10 +685,11 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                     >
                       Try Gemini Flash Latest
                     </button>
+                    </>}
                   </div>
                 </div>
               ) : activeTab === 'fulltext' ? (
-                <div className="prose max-w-none text-neutral-800 text-base leading-relaxed whitespace-pre-wrap select-text">
+                <div dir="auto" className="prose max-w-none text-neutral-800 text-base leading-relaxed whitespace-pre-wrap select-text">
                   {result.fullText}
                 </div>
               ) : (
@@ -675,6 +704,7 @@ export const TranscriptionView: React.FC<TranscriptionViewProps> = ({
                           <span className="text-xs font-bold text-neutral-900 bg-neutral-200/70 px-2.5 py-0.5 rounded-md">
                             {segment.speaker}
                           </span>
+                          {segment.timestamp && <span className="text-xs text-neutral-500">{segment.timestamp}</span>}
                         </div>
                         <p className="text-neutral-800 text-base leading-relaxed select-text" dir="auto">
                           {segment.text}

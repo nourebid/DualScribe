@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local account data and saved provider keys
+*.db
+*.db-*

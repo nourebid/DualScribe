@@ -18,6 +18,7 @@ export interface TranscriptionResult {
   segments: TranscriptionSegment[];
   fullText: string;
   modelUsed?: string;
+  speakerDiarization?: boolean;
 }
 
 export interface TranscriptionRecord {

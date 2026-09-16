@@ -128,7 +128,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUserUpdate }
 
         <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/70 text-xs text-neutral-600 leading-relaxed space-y-2">
           <p>
-            DualScribe runs exclusively on your personal Google Gemini API key. Calls are proxied securely through the server without exposing secrets to the browser or incurring developer markups.
+            This saved key is used for Gemini. To use Groq, select Whisper Large V3 Turbo in the transcription view and enter a temporary Groq key there.
           </p>
           <div className="flex items-center gap-2 pt-1">
             <a

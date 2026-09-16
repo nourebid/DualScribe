@@ -283,7 +283,7 @@ export default function App() {
                 title="Manage personal Google Gemini API Key"
               >
                 <Key size={13} />
-                <span>{user.hasApiKey ? 'Gemini Key: Connected' : 'Gemini Key Required'}</span>
+                <span>{user.hasApiKey ? 'Gemini Key: Connected' : 'Gemini Key: Not Connected'}</span>
               </button>
 
               {/* Mobile Tab Icons */}
